@@ -1,4 +1,5 @@
 use crate::parser::Rule;
+use crate::object::Object;
 use pest::error::Error as PestError;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -12,6 +13,7 @@ pub struct Error {
 pub enum ErrorKind {
     PestError(PestError<Rule>),
     InvalidNumericConstant(String),
+    UnknownExpressionType(Object),
 }
 
 impl From<ErrorKind> for Error {

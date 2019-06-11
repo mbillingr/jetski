@@ -7,6 +7,9 @@ mod error;
 mod object;
 pub mod parser;
 
+pub use error::*;
+pub use object::Object;
+
 #[cfg(test)]
 mod tests {
     #[test]

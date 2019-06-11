@@ -5,6 +5,12 @@ authors = ["Martin Billinger <flkazemakase@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-llvm-sys = "80.1"
+llvm-sys = "70"
+#llvm-rs = "0.2"
+#llvm-rs = { git ="https://github.com/lapz/llvm-rs/"}
+#llvm-rs = { path = "../llvm-rs"}
 pest = "2.1"
 pest_derive = "2.1"
+
+[dev-dependencies]
+rustyline = "4"

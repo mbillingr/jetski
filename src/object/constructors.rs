@@ -46,6 +46,10 @@ impl ListBuilder {
     }
 
     pub fn build(self) -> Object {
-        Object::new(TaggedValue::List(self.partial_list, self.last_cdr))
+        if self.partial_list.is_empty() {
+            Object::new(TaggedValue::Nil)
+        } else {
+            Object::new(TaggedValue::List(self.partial_list, self.last_cdr))
+        }
     }
 }
