@@ -12,6 +12,14 @@ impl Object {
     pub fn new(content: TaggedValue) -> Self {
         Object { content }
     }
+
+    pub fn as_value(&self) -> &TaggedValue {
+        &self.content
+    }
+
+    pub fn into_value(&self) -> &TaggedValue {
+        &self.content
+    }
 }
 
 #[derive(Debug)]
