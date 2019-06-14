@@ -1,9 +1,7 @@
 use super::block::Block;
 use super::str_to_cstring;
 use super::value::Value;
-use llvm_sys::core::{
-    LLVMAppendBasicBlock,
-};
+use llvm_sys::core::LLVMAppendBasicBlock;
 use llvm_sys::prelude::*;
 
 /// Although functions are values too, it improves type safety if we treat them as different types

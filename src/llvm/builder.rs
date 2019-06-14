@@ -35,6 +35,30 @@ impl Builder {
         unsafe { LLVMBuildSub(self.ptr, lhs.into(), rhs.into(), name.as_ptr()).into() }
     }
 
+    pub fn mul(&mut self, lhs: Value, rhs: Value, name: &str) -> Value {
+        let name = str_to_cstring(name);
+        unsafe { LLVMBuildMul(self.ptr, lhs.into(), rhs.into(), name.as_ptr()).into() }
+    }
+
+    pub fn div(&mut self, lhs: Value, rhs: Value, name: &str) -> Value {
+        let name = str_to_cstring(name);
+        unsafe { LLVMBuildSDiv(self.ptr, lhs.into(), rhs.into(), name.as_ptr()).into() }
+    }
+
+    pub fn insert_value(&mut self, aggval: Value, x: Value, index: usize, name: &str) -> Value {
+        let name = str_to_cstring(name);
+        unsafe {
+            LLVMBuildInsertValue(
+                self.ptr,
+                aggval.into(),
+                x.into(),
+                index as u32,
+                name.as_ptr(),
+            )
+            .into()
+        }
+    }
+
     pub fn extract_value(&mut self, aggval: Value, index: usize, name: &str) -> Value {
         let name = str_to_cstring(name);
         unsafe {

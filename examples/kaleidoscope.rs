@@ -46,20 +46,6 @@ impl Compiler {
             self.module
                 .add_function("lookup", Type::function(self.obj_type, &[self.obj_type])),
         );
-        self.builtins.insert(
-            "+",
-            self.module.add_function(
-                "+",
-                Type::function(self.obj_type, &[self.obj_type, self.obj_type]),
-            ),
-        );
-        self.builtins.insert(
-            "-",
-            self.module.add_function(
-                "-",
-                Type::function(self.obj_type, &[self.obj_type, self.obj_type]),
-            ),
-        );
     }
 
     fn compile_top_level(&mut self, expr: &Object) -> Result<Function> {
@@ -104,11 +90,16 @@ impl Compiler {
         let a = self.builder.extract_value(lhs, 1, "lhs");
         let b = self.builder.extract_value(rhs, 1, "rhs");
 
-        match expr.get_ref(0).and_then(Object::try_as_symbol_name) {
-            Some("+") => Ok(self.builder.add(a, b, "var")),
-            Some("-") => Ok(self.builder.sub(a, b, "var")),
+        let result = match expr.get_ref(0).and_then(Object::try_as_symbol_name) {
+            Some("+") => self.builder.add(a, b, "sum"),
+            Some("-") => self.builder.sub(a, b, "diff"),
+            Some("*") => self.builder.mul(a, b, "prod"),
+            Some("/") => self.builder.div(a, b, "quot"),
             _ => unreachable!(),
-        }
+        };
+
+        let tmp = self.make_integer(0);
+        Ok(self.builder.insert_value(tmp, result, 1, "var"))
     }
 
     fn compile_lambda(&mut self, expr: &Object) -> Result<Value> {
@@ -194,7 +185,7 @@ fn is_variable(expr: &Object) -> bool {
 fn is_hardcoded(expr: &Object) -> bool {
     expr.car()
         .and_then(Object::try_as_symbol_name)
-        .map(|name| ["+", "-"].contains(&name))
+        .map(|name| ["+", "-", "*", "/"].contains(&name))
         .unwrap_or(false)
 }
 

@@ -1,7 +1,9 @@
 use llvm_sys::core::{
-    LLVMConstInt, LLVMConstReal, LLVMConstStruct, LLVMDoubleType, LLVMInt64Type, LLVMInt8Type,
+    LLVMConstInt, LLVMConstReal, LLVMConstStruct, LLVMDisposeMessage, LLVMDoubleType,
+    LLVMInt64Type, LLVMInt8Type, LLVMPrintValueToString,
 };
 use llvm_sys::prelude::*;
+use std::ffi::CStr;
 
 #[derive(Copy, Clone)]
 pub struct Value {
@@ -51,5 +53,17 @@ impl From<&Value> for LLVMValueRef {
 impl From<LLVMValueRef> for Value {
     fn from(ptr: LLVMValueRef) -> Self {
         Value { ptr }
+    }
+}
+
+impl std::fmt::Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        unsafe {
+            let cstr = LLVMPrintValueToString(self.ptr);
+            let s = CStr::from_ptr(cstr).to_str().unwrap();
+            write!(f, "{}", s)?;
+            LLVMDisposeMessage(cstr);
+            Ok(())
+        }
     }
 }
