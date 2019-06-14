@@ -70,7 +70,7 @@ fn walk_num_with_radix(pair: Pair<Rule>, radix: u32) -> Result<Object> {
 fn walk_symbol(pair: Pair<Rule>) -> Result<Object> {
     let identifier = pair.into_inner().next().unwrap();
     match identifier.as_rule() {
-        Rule::delimited_identifier | Rule::normal_identifier => {
+        Rule::delimited_identifier | Rule::normal_identifier | Rule::peculiar_identifier => {
             Ok(Object::symbol(identifier.as_str()))
         }
         _ => unreachable!(),

@@ -1,6 +1,10 @@
 use super::{Object, TaggedValue};
 
 impl Object {
+    pub fn nil() -> Self {
+        Object::new(TaggedValue::Nil)
+    }
+
     pub fn integer(value: i64) -> Self {
         Object::new(TaggedValue::Integer(value))
     }

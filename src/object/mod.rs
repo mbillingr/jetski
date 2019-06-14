@@ -4,6 +4,7 @@ mod primitive_methods;
 
 pub use constructors::ListBuilder;
 
+#[derive(Clone)]
 pub struct Object {
     content: TaggedValue,
 }
@@ -22,7 +23,7 @@ impl Object {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TaggedValue {
     Nil,
     Integer(i64),

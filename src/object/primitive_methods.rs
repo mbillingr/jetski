@@ -1,5 +1,4 @@
 use super::{Object, TaggedValue};
-use crate::error::Result;
 
 impl Object {
     pub fn is_null(&self) -> bool {
@@ -51,6 +50,13 @@ impl Object {
         }
     }
 
+    pub fn try_as_symbol_name(&self) -> Option<&str> {
+        match self.content {
+            TaggedValue::Symbol(ref name) => Some(name),
+            _ => None,
+        }
+    }
+
     pub fn is_string(&self) -> bool {
         match self.content {
             TaggedValue::String(_) => true,
@@ -58,10 +64,39 @@ impl Object {
         }
     }
 
-    pub fn car(&self) -> Result<&Object> {
+    pub fn is_list(&self) -> bool {
         match self.content {
-            TaggedValue::List(ref list, _) => Ok(&list[0]),
-            _ => unimplemented!()
+            TaggedValue::List(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn try_as_slice(&self) -> Option<&[Object]> {
+        match self.content {
+            TaggedValue::List(ref list, _) => Some(list),
+            _ => None,
+        }
+    }
+
+    pub fn car(&self) -> Option<&Object> {
+        match self.content {
+            TaggedValue::List(ref list, _) => Some(&list[0]),
+            _ => None,
+        }
+    }
+
+    pub fn get_ref(&self, idx: usize) -> Option<&Object> {
+        match self.content {
+            TaggedValue::List(ref list, _) => Some(&list[idx]),
+            _ => None,
+        }
+    }
+
+    pub fn list_len(&self) -> Option<usize> {
+        match self.content {
+            TaggedValue::Nil => Some(0),
+            TaggedValue::List(ref list, _) => Some(list.len()),
+            _ => None,
         }
     }
 }

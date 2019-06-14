@@ -1,10 +1,10 @@
-use llvm_sys::prelude::*;
-use llvm_sys::core::*;
-use super::module::Module;
 use super::builder::Builder;
+use super::module::Module;
+use llvm_sys::core::*;
+use llvm_sys::prelude::*;
 
 pub struct Context {
-    pub(crate) ptr: LLVMContextRef
+    pub(crate) ptr: LLVMContextRef,
 }
 
 impl Context {

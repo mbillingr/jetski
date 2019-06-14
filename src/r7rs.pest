@@ -34,12 +34,12 @@ special_subsequent = _{ explicit_sign | "." | "@" }
 inline_hex_escape = { "\\x" ~ hex_scalar_value ~ ";" }
 hex_scalar_value = { hex_digit+ }
 mnemonic_escape = _{ "\\a" | "\\b" | "\\t" | "\\n" | "\\r" }
-peculiar_identifier = { (explicit_sign ~ sign_subsequent ~ subsequent*)
+peculiar_identifier = @{ (explicit_sign ~ sign_subsequent ~ subsequent*)
                     | (explicit_sign ~ "." ~ dot_subsequent ~ subsequent*)
                     | ("." ~ dot_subsequent ~ subsequent*)
                     | explicit_sign }
-dot_subsequent = { sign_subsequent | "." }
-sign_subsequent = { initial | explicit_sign | "@" }
+dot_subsequent = _{ sign_subsequent | "." }
+sign_subsequent = _{ initial | explicit_sign | "@" }
 symbol_element = _{ inline_hex_escape | mnemonic_escape | "\\|" | (!(vertical_line | "\\") ~ ANY) }
 
 boolean = { "#true" | "#false" | "#t" | "#f" }

@@ -1,5 +1,5 @@
-use crate::parser::Rule;
 use crate::object::Object;
+use crate::parser::Rule;
 use pest::error::Error as PestError;
 
 pub type Result<T> = std::result::Result<T, Error>;
