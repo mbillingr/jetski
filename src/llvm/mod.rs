@@ -2,6 +2,7 @@ pub mod block;
 pub mod builder;
 pub mod context;
 pub mod function;
+pub mod jit;
 pub mod module;
 pub mod types;
 pub mod value;

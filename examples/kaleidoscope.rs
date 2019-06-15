@@ -1,13 +1,13 @@
 use jetski::llvm::{self, Function, Type, Value};
 use jetski::llvm::{Builder, Module};
 use jetski::{parser::parse_datum, ErrorKind, Object, Result};
-use llvm_sys::core::{LLVMDisposeMessage, LLVMPrintModuleToString, LLVMPrintValueToString};
+use llvm_sys::execution_engine::{
+    LLVMCreateExecutionEngineForModule, LLVMDisposeExecutionEngine, LLVMExecutionEngineRef,
+    LLVMLinkInInterpreter,
+};
+use llvm_sys::target::LLVM_InitializeNativeTarget;
 use rustyline::{error::ReadlineError, Editor};
 use std::collections::HashMap;
-use std::ffi::CStr;
-
-//use llvm_sys::{LLVMValue, LLVMValueKind};
-//use llvm_sys::core::LLVMContextCreate;
 
 enum Tag {
     _Null,
@@ -221,7 +221,15 @@ fn main() -> Result<()> {
     let module = LLVMModuleCreateWithName(c_str!("main"));
     let builder = LLVMCreateBuilderInContext(context);*/
 
+    unsafe {
+        LLVM_InitializeNativeTarget();
+        LLVMLinkInInterpreter();
+    }
+
     let mut compiler = Compiler::new();
+
+    //use llvm_sys::execution_engine::
+    //ee = LLVMEng
 
     let mut editor = Editor::<()>::new();
     loop {
@@ -230,16 +238,22 @@ fn main() -> Result<()> {
                 editor.add_history_entry(line.clone());
                 let expression = parse_datum(&line)?;
                 let value = compiler.compile_top_level(&expression)?;
-                unsafe {
-                    let cstr = LLVMPrintValueToString(value.into());
-                    let s = CStr::from_ptr(cstr).to_str().unwrap();
-                    println!("{}", s);
-                    LLVMDisposeMessage(cstr);
+                println!("{:?}", value);
+                println!("{:?}", compiler.module);
 
-                    let cstr = LLVMPrintModuleToString((&compiler.module).into());
-                    let s = CStr::from_ptr(cstr).to_str().unwrap();
-                    println!("{}", s);
-                    LLVMDisposeMessage(cstr);
+                unsafe {
+                    let mut ee: LLVMExecutionEngineRef = 0 as *mut _;
+                    let mut err_buf: *mut i8 = 0 as *mut _;
+                    println!(
+                        "{:?}",
+                        LLVMCreateExecutionEngineForModule(
+                            &mut ee,
+                            (&compiler.module).into(),
+                            &mut err_buf
+                        )
+                    );
+                    println!("{:?}", std::ffi::CStr::from_ptr(err_buf));
+                    LLVMDisposeExecutionEngine(ee);
                 }
             }
             Err(ReadlineError::Eof) => return Ok(()),

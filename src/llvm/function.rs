@@ -1,8 +1,9 @@
 use super::block::Block;
 use super::str_to_cstring;
 use super::value::Value;
-use llvm_sys::core::LLVMAppendBasicBlock;
+use llvm_sys::core::{LLVMAppendBasicBlock, LLVMDisposeMessage, LLVMPrintValueToString};
 use llvm_sys::prelude::*;
+use std::ffi::CStr;
 
 /// Although functions are values too, it improves type safety if we treat them as different types
 #[derive(Copy, Clone)]
@@ -46,5 +47,17 @@ impl From<Function> for Value {
     fn from(val: Function) -> Self {
         let tmp: LLVMValueRef = val.into();
         tmp.into()
+    }
+}
+
+impl std::fmt::Debug for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        unsafe {
+            let cstr = LLVMPrintValueToString(self.ptr);
+            let s = CStr::from_ptr(cstr).to_str().unwrap();
+            write!(f, "{}", s)?;
+            LLVMDisposeMessage(cstr);
+            Ok(())
+        }
     }
 }
