@@ -4,7 +4,7 @@ extern crate pest;
 extern crate pest_derive;
 
 mod error;
-pub mod llvm;
+pub mod jit;
 mod object;
 pub mod parser;
 

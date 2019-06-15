@@ -1,74 +1,101 @@
-use jetski::llvm::{self, Function, Type, Value};
-use jetski::llvm::{Builder, Module};
-use jetski::{parser::parse_datum, ErrorKind, Object, Result};
-use llvm_sys::execution_engine::{
-    LLVMCreateExecutionEngineForModule, LLVMDisposeExecutionEngine, LLVMExecutionEngineRef,
-    LLVMLinkInInterpreter,
-};
-use llvm_sys::target::LLVM_InitializeNativeTarget;
+
+use cranelift::prelude::*;
+use jetski::{Object, Result, ErrorKind, parser::parse_datum, jit::Tag};
 use rustyline::{error::ReadlineError, Editor};
 use std::collections::HashMap;
+use cranelift_module::{Module, Linkage};
+use cranelift_simplejit::{SimpleJITBackend, SimpleJITBuilder};
+use cranelift::codegen::write_function;
 
-enum Tag {
-    _Null,
-    Integer,
-    Float,
-    Symbol,
-    Function,
+fn lookup(tag: i8, val: i64) -> (i8, i64) {
+    println!("Hello from the Rust function <lookup> :)");
+    (0, 0)
 }
 
-struct Compiler {
-    module: Module,
-    builder: Builder,
-    builtins: HashMap<&'static str, Function>,
+fn compile_top_level(expr: &Object) -> Result<fn()->(Tag, i64)> {
+    let mut jb = SimpleJITBuilder::new();
+    jb.symbol("lookup", lookup as *const _);
+    let mut module = Module::new(jb);
 
-    obj_type: Type,
+    let fn_code = compile_function(&mut module, &Object::nil(), expr, "main")?;
+    let fn_ptr = unsafe {std::mem::transmute::<_, fn()->(Tag, i64)>(fn_code)};
+    Ok(fn_ptr)
 }
 
-impl Compiler {
-    fn new() -> Self {
-        let context = llvm::Context::global();
-        let module = context.create_module("abc");
-        let builder = context.create_builder();
-        let mut compiler = Compiler {
+fn compile_function(module: &mut Module<SimpleJITBackend>, params: &Object, body: &Object, name: &str) -> Result<*const u8> {
+    let mut ctx = module.make_context();
+    let mut func_ctx = FunctionBuilderContext::new();
+
+    let mut signature = module.make_signature();
+    for _ in 0..params.list_len().unwrap() {
+        signature.params.push(AbiParam::new(types::I8));
+        signature.params.push(AbiParam::new(types::I64));
+    }
+    signature.returns.push(AbiParam::new(types::I8));
+    signature.returns.push(AbiParam::new(types::I64));
+
+    let func = module.declare_function(name, Linkage::Local, &signature).unwrap();
+
+    ctx.func.signature = signature;
+    ctx.func.name = ExternalName::user(0, func.as_u32()); {
+        let mut bcx = FunctionBuilder::new(&mut ctx.func, &mut func_ctx);
+        let ebb = bcx.create_ebb();
+
+        bcx.switch_to_block(ebb);
+        bcx.append_ebb_params_for_function_params(ebb);
+
+        let mut compiler = Compiler::new(module, &mut bcx);
+
+        let (tag, val) = compiler.compile_expression(body)?;
+
+        bcx.ins().return_(&[tag, val]);
+        bcx.seal_all_blocks();
+        bcx.finalize();
+
+        let mut s = String::new();
+        write_function(&mut s, &bcx.func, None).unwrap();
+        println!("{}", s);
+    }
+    module.define_function(func, &mut ctx).unwrap();
+    module.clear_context(&mut ctx);
+
+    module.finalize_definitions();
+
+    Ok(module.get_finalized_function(func))
+}
+
+struct Compiler<'a, 'b> {
+    module: &'a mut Module<SimpleJITBackend>,
+    builder: &'a mut FunctionBuilder<'b>,
+    //builtins: HashMap<&'static str, Function>,
+}
+
+impl<'a, 'b> Compiler<'a, 'b> {
+    fn new(module: &'a mut Module<SimpleJITBackend>, builder: &'a mut FunctionBuilder<'b>) -> Self {
+        Compiler {
             module,
             builder,
-            builtins: HashMap::new(),
-            obj_type: Type::structure(&[Type::I8, Type::I64]),
-        };
-        compiler.initialize_builtins();
-        compiler
+            //builtins: HashMap::new()
+        }
     }
 
-    fn initialize_builtins(&mut self) {
-        self.builtins.insert(
-            "lookup",
-            self.module
-                .add_function("lookup", Type::function(self.obj_type, &[self.obj_type])),
-        );
-    }
-
-    fn compile_top_level(&mut self, expr: &Object) -> Result<Function> {
-        self.compile_function(&Object::nil(), expr, "main")
-    }
-
-    fn compile_expression(&mut self, expr: &Object) -> Result<Value> {
+    fn compile_expression(&mut self, expr: &Object) -> Result<(Value, Value)> {
         if is_self_evaluating(expr) {
             self.compile_self_evaluating(expr)
         } else if is_variable(expr) {
             self.compile_variable(expr)
-        } else if is_hardcoded(expr) {
+        /*} else if is_hardcoded(expr) {
             self.compile_hardcoded(expr)
         } else if is_lambda(expr) {
             self.compile_lambda(expr)
         } else if is_application(expr) {
-            self.compile_application(expr)
+            self.compile_application(expr)*/
         } else {
             Err(ErrorKind::UnknownExpressionType(expr.clone()).into())
         }
     }
 
-    fn compile_self_evaluating(&mut self, expr: &Object) -> Result<Value> {
+    fn compile_self_evaluating(&mut self, expr: &Object) -> Result<(Value, Value)> {
         if expr.is_integer() {
             Ok(self.make_integer(expr.try_as_integer().unwrap()))
         } else if expr.is_float() {
@@ -78,12 +105,24 @@ impl Compiler {
         }
     }
 
-    fn compile_variable(&mut self, expr: &Object) -> Result<Value> {
-        let symbol = self.make_symbol(expr.try_as_symbol_name().unwrap());
-        Ok(self.builder.call(self.builtins["lookup"], &[symbol], "var"))
+    fn compile_variable(&mut self, expr: &Object) -> Result<(Value, Value)> {
+        let (tag, val) = self.make_symbol(expr.try_as_symbol_name().unwrap());
+
+        let mut sig = self.module.make_signature();
+        sig.params.push(AbiParam::new(types::I8));
+        sig.params.push(AbiParam::new(types::I64));
+        sig.returns.push(AbiParam::new(types::I8));
+        sig.returns.push(AbiParam::new(types::I64));
+
+        let lookup_decl = self.module.declare_function("lookup", Linkage::Import, &sig).unwrap();
+        let lookup = self.module.declare_func_in_func(lookup_decl, self.builder.func);
+        let call = self.builder.ins().call(lookup, &[tag, val]);
+        //Ok(self.builder.call(self.builtins["lookup"], &[symbol], "var"))
+        let results = self.builder.inst_results(call);
+        Ok((results[0], results[1]))
     }
 
-    fn compile_hardcoded(&mut self, expr: &Object) -> Result<Value> {
+    /*fn compile_hardcoded(&mut self, expr: &Object) -> Result<Value> {
         let lhs = self.compile_expression(expr.get_ref(1).unwrap())?;
         let rhs = self.compile_expression(expr.get_ref(2).unwrap())?;
 
@@ -105,29 +144,9 @@ impl Compiler {
     fn compile_lambda(&mut self, expr: &Object) -> Result<Value> {
         let func = self.compile_function(lambda_params(&expr), lambda_body(&expr), "lambda")?;
         Ok(self.make_function(func))
-    }
+    }*/
 
-    fn compile_function(&mut self, params: &Object, body: &Object, name: &str) -> Result<Function> {
-        let arg_types = vec![self.obj_type; params.list_len().unwrap()];
-        let fnty = Type::function(self.obj_type, &arg_types);
-        let mut func = self.module.add_function(name, fnty);
-
-        let block = func.append_block("entry");
-
-        let mut builder = llvm::Context::global().create_builder();
-        builder.position_at_end(block);
-
-        std::mem::swap(&mut self.builder, &mut builder);
-
-        let body = self.compile_expression(body)?;
-        self.builder.ret(body);
-
-        std::mem::swap(&mut self.builder, &mut builder);
-
-        Ok(func)
-    }
-
-    fn compile_application(&mut self, expr: &Object) -> Result<Value> {
+    /*fn compile_application(&mut self, expr: &Object) -> Result<Value> {
         // TODO: it seems a bit hackish to determine the function type from the number of arguments
         //       passed in the call. Would it be better to encode the signature in the function tag?
         let arg_types = vec![self.obj_type; get_operands(expr).len()];
@@ -140,38 +159,32 @@ impl Compiler {
             .map(|x| self.compile_expression(x))
             .collect::<Result<_>>()?;
         Ok(self.builder.call(func.into(), &args, "var"))
+    }*/
+
+    fn make_integer(&mut self, value: i64) -> (Value, Value) {
+        let tag = self.builder.ins().iconst(types::I8, Tag::Integer as i64);
+        let val = self.builder.ins().iconst(types::I64, value);
+        (tag, val)
     }
 
-    fn make_integer(&self, value: i64) -> Value {
-        Value::const_struct(
-            &[Value::const_u8(Tag::Integer as u8), Value::const_i64(value)],
-            false,
-        )
+    fn make_float(&mut self, value: f64) -> (Value, Value) {
+        let tag = self.builder.ins().iconst(types::I8, Tag::Float as i64);
+        let val = self.builder.ins().iconst(types::I64, unsafe { std::mem::transmute::<f64, i64>(value) } );
+        (tag, val)
     }
 
-    fn make_float(&self, value: f64) -> Value {
-        Value::const_struct(
-            &[Value::const_u8(Tag::Float as u8), Value::const_f64(value)],
-            false,
-        )
-    }
-
-    fn make_symbol(&self, name: &str) -> Value {
+    fn make_symbol(&mut self, name: &str) -> (Value, Value) {
         // TODO: get pointer or something that uniquely identifies the symbol
         // temporary workaround: use first character
-        Value::const_struct(
-            &[
-                Value::const_u8(Tag::Symbol as u8),
-                Value::const_u64(name.chars().next().unwrap() as u64),
-            ],
-            false,
-        )
+        let tag = self.builder.ins().iconst(types::I8, Tag::Symbol as i64);
+        let val = self.builder.ins().iconst(types::I64, name.chars().next().unwrap() as i64 );
+        (tag, val)
     }
 
-    fn make_function(&mut self, func: Function) -> Value {
+    /*fn make_function(&mut self, func: Function) -> Value {
         let fptr = self.builder.ptr_to_int(func.into(), Type::I64, "fptr");
         Value::const_struct(&[Value::const_u8(Tag::Function as u8), fptr], false)
-    }
+    }*/
 }
 
 fn is_self_evaluating(expr: &Object) -> bool {
@@ -217,16 +230,6 @@ fn get_operands(expr: &Object) -> &[Object] {
 }
 
 fn main() -> Result<()> {
-    /*let context = LLVMContextCreate();
-    let module = LLVMModuleCreateWithName(c_str!("main"));
-    let builder = LLVMCreateBuilderInContext(context);*/
-
-    unsafe {
-        LLVM_InitializeNativeTarget();
-        LLVMLinkInInterpreter();
-    }
-
-    let mut compiler = Compiler::new();
 
     //use llvm_sys::execution_engine::
     //ee = LLVMEng
@@ -237,27 +240,14 @@ fn main() -> Result<()> {
             Ok(line) => {
                 editor.add_history_entry(line.clone());
                 let expression = parse_datum(&line)?;
-                let value = compiler.compile_top_level(&expression)?;
-                println!("{:?}", value);
-                println!("{:?}", compiler.module);
-
-                unsafe {
-                    let mut ee: LLVMExecutionEngineRef = 0 as *mut _;
-                    let mut err_buf: *mut i8 = 0 as *mut _;
-                    println!(
-                        "{:?}",
-                        LLVMCreateExecutionEngineForModule(
-                            &mut ee,
-                            (&compiler.module).into(),
-                            &mut err_buf
-                        )
-                    );
-                    println!("{:?}", std::ffi::CStr::from_ptr(err_buf));
-                    LLVMDisposeExecutionEngine(ee);
-                }
+                let top_fn = compile_top_level(&expression)?;
+                let result: Object = top_fn().into();
+                println!("{:?}", result);
             }
             Err(ReadlineError::Eof) => return Ok(()),
             Err(e) => eprintln!("{}", e.to_string()),
         }
     }
+
+    Ok(())
 }
