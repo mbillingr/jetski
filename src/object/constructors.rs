@@ -1,6 +1,9 @@
 use super::{Object, TaggedValue};
 
 impl Object {
+    pub fn undef() -> Self {
+        Object::new(TaggedValue::Undef)
+    }
     pub fn nil() -> Self {
         Object::new(TaggedValue::Nil)
     }

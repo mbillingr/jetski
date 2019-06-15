@@ -25,6 +25,7 @@ impl Object {
 
 #[derive(Debug, Clone)]
 pub enum TaggedValue {
+    Undef,
     Nil,
     Integer(i64),
     Float(f64),

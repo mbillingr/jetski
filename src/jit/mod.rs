@@ -4,6 +4,7 @@ use cranelift::prelude::*;
 #[derive(Debug)]
 #[repr(u8)]
 pub enum Tag {
+    Undef,
     Null,
     Integer,
     Float,
@@ -14,6 +15,7 @@ pub enum Tag {
 impl From<(Tag, i64)> for Object {
     fn from((tag, val): (Tag, i64)) -> Object {
         match tag {
+            Tag::Undef => Object::undef(),
             Tag::Null => Object::nil(),
             Tag::Integer => Object::integer(val),
             Tag::Float => Object::float(unsafe { std::mem::transmute::<i64, f64>(val) }),
