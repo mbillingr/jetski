@@ -20,6 +20,10 @@ impl Object {
     pub fn string(content: String) -> Self {
         Object::new(TaggedValue::String(content))
     }
+
+    pub fn function(ptr: *const u8) -> Self {
+        Object::new(TaggedValue::Function(ptr))
+    }
 }
 
 pub struct ListBuilder {

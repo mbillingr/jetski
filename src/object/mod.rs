@@ -31,4 +31,5 @@ pub enum TaggedValue {
     Symbol(String), // todo: use interned symbols
     String(String),
     List(Vec<Object>, Option<Box<Object>>),
+    Function(*const u8),
 }

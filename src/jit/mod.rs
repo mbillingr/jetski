@@ -1,6 +1,5 @@
-
-use cranelift::prelude::*;
 use crate::Object;
+use cranelift::prelude::*;
 
 #[derive(Debug)]
 #[repr(u8)]
@@ -17,20 +16,23 @@ impl From<(Tag, i64)> for Object {
         match tag {
             Tag::Null => Object::nil(),
             Tag::Integer => Object::integer(val),
-            Tag::Float => Object::float(unsafe { std::mem::transmute::<i64, f64>(val) } ),
+            Tag::Float => Object::float(unsafe { std::mem::transmute::<i64, f64>(val) }),
+            Tag::Symbol => {
+                Object::symbol(&unsafe { std::mem::transmute::<_, char>(val as u32).to_string() })
+            }
+            Tag::Function => Object::function(val as *const _),
             _ => unimplemented!("Convert {:?} to object", (tag, val)),
         }
     }
 }
 
-
 #[cfg(test)]
 mod learning_tests {
+    use cranelift::codegen::{write, write_function};
     use cranelift::prelude::*;
-    use cranelift_module::{Module, Linkage};
+    use cranelift_module::{Linkage, Module};
     use cranelift_simplejit::{SimpleJITBackend, SimpleJITBuilder};
     use std::sync::mpsc::TrySendError::Full;
-    use cranelift::codegen::{write, write_function};
 
     #[test]
     fn it_works() {
@@ -42,10 +44,13 @@ mod learning_tests {
         sig_a.params.push(AbiParam::new(types::I32));
         sig_a.returns.push(AbiParam::new(types::I32));
 
-        let func_a = module.declare_function("a", Linkage::Local, &sig_a).unwrap();
+        let func_a = module
+            .declare_function("a", Linkage::Local, &sig_a)
+            .unwrap();
 
         ctx.func.signature = sig_a;
-        ctx.func.name = ExternalName::user(0, func_a.as_u32()); {
+        ctx.func.name = ExternalName::user(0, func_a.as_u32());
+        {
             let mut bcx = FunctionBuilder::new(&mut ctx.func, &mut func_ctx);
             let ebb = bcx.create_ebb();
 
@@ -69,7 +74,7 @@ mod learning_tests {
 
         let code_a = module.get_finalized_function(func_a);
 
-        let ptr_a = unsafe {std::mem::transmute::<_, fn(u32)->u32>(code_a)};
+        let ptr_a = unsafe { std::mem::transmute::<_, fn(u32) -> u32>(code_a) };
 
         assert_eq!(ptr_a(5), 42);
     }
@@ -84,10 +89,13 @@ mod learning_tests {
         sig_a.returns.push(AbiParam::new(types::I32));
         sig_a.returns.push(AbiParam::new(types::I32));
 
-        let func_a = module.declare_function("a", Linkage::Local, &sig_a).unwrap();
+        let func_a = module
+            .declare_function("a", Linkage::Local, &sig_a)
+            .unwrap();
 
         ctx.func.signature = sig_a;
-        ctx.func.name = ExternalName::user(0, func_a.as_u32()); {
+        ctx.func.name = ExternalName::user(0, func_a.as_u32());
+        {
             let mut bcx = FunctionBuilder::new(&mut ctx.func, &mut func_ctx);
             let ebb = bcx.create_ebb();
 
@@ -110,7 +118,7 @@ mod learning_tests {
 
         let code_a = module.get_finalized_function(func_a);
 
-        let ptr_a = unsafe {std::mem::transmute::<_, fn()->(u32, u32)>(code_a)};
+        let ptr_a = unsafe { std::mem::transmute::<_, fn() -> (u32, u32)>(code_a) };
 
         assert_eq!(ptr_a(), (3, 7));
     }
