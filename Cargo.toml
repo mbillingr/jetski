@@ -1,16 +1,6 @@
-[package]
-name = "jetski"
-version = "0.1.0"
-authors = ["Martin Billinger <flkazemakase@gmail.com>"]
-edition = "2018"
+[workspace]
 
-[dependencies]
-cranelift = "0.30"
-cranelift-module = "0.30"
-cranelift-simplejit = "0.30"
-cranelift-preopt = "0.30.0"
-pest = "2.1"
-pest_derive = "2.1"
+members = [
+    "jetski",
+]
 
-[dev-dependencies]
-rustyline = "4"
