@@ -4,7 +4,10 @@ extern crate pest;
 extern crate pest_derive;
 
 mod error;
+#[macro_use]
 pub mod expression_matcher;
+#[macro_use]
+pub mod scheme_matcher;
 pub mod jit;
 mod object;
 pub mod parser;
@@ -15,6 +18,8 @@ pub use object::Object;
 // TODO: I'm not yet sure where this trait should live...
 pub trait SchemeExpression {
     fn is_nil(&self) -> bool;
+
+    fn symbol_name(&self) -> Option<&'static str>;
 
     fn car(&self) -> Option<&Self>;
     fn cdr(&self) -> Option<&Self>;

@@ -1,3 +1,4 @@
+#[macro_export]
 macro_rules! match_template {
     ($exp:expr, $action:block, [$single:tt]) => {
         $exp.cdr()
@@ -86,6 +87,14 @@ mod tests {
     }
 
     impl crate::SchemeExpression for Expr {
+        fn symbol_name(&self) -> Option<&'static str> {
+            if let Symbol(name) = self {
+                Some(name)
+            } else {
+                None
+            }
+        }
+
         fn car(&self) -> Option<&Self> {
             if let Pair(a, _) = self {
                 Some(a)
