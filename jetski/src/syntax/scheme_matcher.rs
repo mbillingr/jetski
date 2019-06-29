@@ -13,6 +13,22 @@ macro_rules! switch {
         scheme_match!($exp, {$action}, $($template)*)
             .unwrap_or_else(|| switch!($exp, $($rest)*))
     };
+
+    ($exp:expr, $predicate:expr => $action:expr,) => {
+        if $predicate($exp) {
+            $action
+        } else {
+            panic!("Last clause in switch must never fail to match")
+        }
+    };
+
+    ($exp:expr, $predicate:expr => $action:expr, $($rest:tt)*) => {
+        if $predicate($exp) {
+            $action
+        } else {
+            switch!($exp, $($rest)*)
+        }
+    };
 }
 
 #[macro_export]
@@ -20,7 +36,21 @@ macro_rules! scheme_match {
     ($exp:expr, $action:block, ($single:tt)) => {
         $exp.decons()
             .filter(|(_, cdr)| cdr.is_nil())
-            .and_then(|(car, _)| scheme_match!(car, $action, $single))
+            .and_then(|(_car, _)| scheme_match!(_car, $action, $single))
+    };
+
+    ($exp:expr, $action:block, ($car:tt . $($cdr:tt)*)) => {
+        $exp.decons()
+            .and_then(|(_car, _cdr)| scheme_match!(_car, {
+                scheme_match!(_cdr, $action, $($cdr)*)
+            }, $car)).unwrap_or(None)
+    };
+
+    ($exp:expr, $action:block, (? $car:tt . $($cdr:tt)*)) => {
+        $exp.decons()
+            .and_then(|(_car, _cdr)| scheme_match!(_car, {
+                scheme_match!(_cdr, $action, $($cdr)*)
+            }, ?$car)).unwrap_or(None)
     };
 
     ($exp:expr, $action:block, (? $var:tt)) => {
@@ -40,9 +70,9 @@ macro_rules! scheme_match {
 
     ($exp:expr, $action:block, ($first:tt $($rest:tt)*)) => {
         $exp.decons()
-            .and_then(|(car, cdr)| {
-                scheme_match!(car, {
-                    scheme_match!(cdr, $action, ($($rest)*))
+            .and_then(|(_car, _cdr)| {
+                scheme_match!(_car, {
+                    scheme_match!(_cdr, $action, ($($rest)*))
                 }, $first).unwrap_or(None)
             })
     };
@@ -67,7 +97,7 @@ macro_rules! scheme_match {
     };
 
     ($exp:expr, $action:block, $sym:ident) => {
-        if let Some($sym) = $exp.symbol_name() {
+        if let Some(stringify!($sym)) = $exp.symbol_name() {
             Some($action)
         } else {
             None
@@ -143,6 +173,13 @@ mod tests {
     }
 
     #[test]
+    fn simple_mismatch_sconstant() {
+        assert_eq!(None, scheme_match!(&Symbol("xyz"), {}, abc));
+        assert_eq!(None, scheme_match!(&Int(666), {}, 42));
+        assert_eq!(None, scheme_match!(&Int(42), {}, ()));
+    }
+
+    #[test]
     fn simple_match_constant() {
         assert_eq!(Some(()), scheme_match!(&Symbol("xyz"), {}, xyz));
         assert_eq!(Some(()), scheme_match!(&Int(42), {}, 42));
@@ -202,6 +239,16 @@ mod tests {
     }
 
     #[test]
+    fn pair_match() {
+        let pair = Expr::cons(Int(1), Int(2));
+        assert_eq!(None, scheme_match!(&pair, {}, (_ _)));
+        assert_eq!(Some(()), scheme_match!(&pair, {}, (_ . _)));
+        assert_eq!(None, scheme_match!(&pair, {}, (_ _ _)));
+        assert_eq!(Some(&Int(1)), scheme_match!(&pair, {x}, (?x . _)));
+        assert_eq!(Some(&Int(2)), scheme_match!(&pair, {y}, (_ . ?y)));
+    }
+
+    #[test]
     #[should_panic(expected = "Last clause in switch must never fail to match")]
     fn switch_error() {
         switch! { &Int(5),
@@ -245,5 +292,16 @@ mod tests {
             },
             0
         );
+    }
+
+    #[test]
+    fn switch_predicate() {
+        assert_eq!(
+            switch! { &Int(4),
+                |_| false => 1,
+                |_| true => 2,
+            },
+            2
+        )
     }
 }

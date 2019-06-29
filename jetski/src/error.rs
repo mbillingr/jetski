@@ -14,6 +14,9 @@ pub enum ErrorKind {
     PestError(PestError<Rule>),
     InvalidNumericConstant(String),
     UnknownExpressionType(Object),
+
+    NotAPair(Object),
+    SyntaxError(String),
 }
 
 impl From<ErrorKind> for Error {

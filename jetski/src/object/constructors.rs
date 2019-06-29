@@ -1,4 +1,6 @@
 use super::{Object, TaggedValue};
+use crate::runtime::Symbol;
+use crate::SchemeExpression;
 
 impl Object {
     pub fn undef() -> Self {
@@ -16,8 +18,8 @@ impl Object {
         Object::new(TaggedValue::Float(value))
     }
 
-    pub fn symbol(name: &str) -> Self {
-        Object::new(TaggedValue::Symbol(name.to_owned()))
+    pub fn symbol<T: AsRef<str> + ToString>(name: T) -> Self {
+        Object::new(TaggedValue::Symbol(Symbol::new(name)))
     }
 
     pub fn string(content: String) -> Self {
@@ -27,40 +29,41 @@ impl Object {
     pub fn function(ptr: *const u8) -> Self {
         Object::new(TaggedValue::Function(ptr))
     }
+
+    pub fn cons(car: Object, cdr: Object) -> Self {
+        Object::new(TaggedValue::Pair(Box::new(car), Box::new(cdr)))
+    }
 }
 
 pub struct ListBuilder {
-    partial_list: Vec<Object>,
-    last_cdr: Option<Box<Object>>,
+    partial_list: Box<Object>,
+    cursor: *mut Object,
 }
 
 impl ListBuilder {
     pub fn new() -> Self {
-        ListBuilder {
-            partial_list: vec![],
-            last_cdr: None,
-        }
+        let mut builder = ListBuilder {
+            partial_list: Box::new(Object::nil()),
+            cursor: 0 as *mut _,
+        };
+        builder.cursor = builder.partial_list.as_mut();
+        builder
     }
 
     pub fn append(&mut self, item: Object) {
-        self.partial_list.push(item);
+        unsafe {
+            *self.cursor = Object::cons(item, Object::nil());
+            self.cursor = (*self.cursor).cdr_mut().unwrap();
+        }
     }
 
     pub fn set_cdr(&mut self, item: Object) {
-        match item.content {
-            TaggedValue::List(list, cdr) => {
-                self.partial_list.extend(list);
-                self.last_cdr = cdr;
-            }
-            _ => self.last_cdr = Some(Box::new(item)),
+        unsafe {
+            *self.cursor = item;
         }
     }
 
     pub fn build(self) -> Object {
-        if self.partial_list.is_empty() {
-            Object::new(TaggedValue::Nil)
-        } else {
-            Object::new(TaggedValue::List(self.partial_list, self.last_cdr))
-        }
+        *self.partial_list
     }
 }

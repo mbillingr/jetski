@@ -1,10 +1,14 @@
+mod algorithms;
 mod constructors;
+mod conversion;
 mod formatting;
 mod primitive_methods;
+mod scheme_expression;
 
+use crate::runtime::Symbol;
 pub use constructors::ListBuilder;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Object {
     content: TaggedValue,
 }
@@ -23,14 +27,14 @@ impl Object {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TaggedValue {
     Undef,
     Nil,
     Integer(i64),
     Float(f64),
-    Symbol(String), // todo: use interned symbols
+    Symbol(Symbol),
     String(String),
-    List(Vec<Object>, Option<Box<Object>>),
+    Pair(Box<Object>, Box<Object>),
     Function(*const u8),
 }

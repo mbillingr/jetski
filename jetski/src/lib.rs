@@ -2,15 +2,15 @@ extern crate pest;
 
 #[macro_use]
 extern crate pest_derive;
+#[macro_use]
+pub mod syntax;
 
 mod error;
-#[macro_use]
-pub mod expression_matcher;
-#[macro_use]
-pub mod scheme_matcher;
 pub mod jit;
 mod object;
 pub mod parser;
+pub mod runtime;
+pub mod transformations;
 
 pub use error::*;
 pub use object::Object;
@@ -25,6 +25,12 @@ pub trait SchemeExpression {
     fn cdr(&self) -> Option<&Self>;
     fn decons(&self) -> Option<(&Self, &Self)> {
         self.car().map(|a| (a, self.cdr().unwrap()))
+    }
+    fn car_mut(&mut self) -> Option<&mut Self> {
+        unimplemented!()
+    }
+    fn cdr_mut(&mut self) -> Option<&mut Self> {
+        unimplemented!()
     }
 }
 

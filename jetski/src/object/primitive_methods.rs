@@ -1,4 +1,4 @@
-use super::{Object, TaggedValue};
+use super::{Object, Symbol, TaggedValue};
 
 impl Object {
     pub fn is_null(&self) -> bool {
@@ -44,15 +44,12 @@ impl Object {
     }
 
     pub fn is_symbol(&self) -> bool {
-        match self.content {
-            TaggedValue::Symbol(_) => true,
-            _ => false,
-        }
+        self.as_symbol().is_some()
     }
 
-    pub fn try_as_symbol_name(&self) -> Option<&str> {
+    pub fn as_symbol(&self) -> Option<Symbol> {
         match self.content {
-            TaggedValue::Symbol(ref name) => Some(name),
+            TaggedValue::Symbol(s) => Some(s),
             _ => None,
         }
     }
@@ -66,37 +63,8 @@ impl Object {
 
     pub fn is_list(&self) -> bool {
         match self.content {
-            TaggedValue::List(_, _) => true,
+            TaggedValue::Pair(_, _) => true,
             _ => false,
-        }
-    }
-
-    pub fn try_as_slice(&self) -> Option<&[Object]> {
-        match self.content {
-            TaggedValue::List(ref list, _) => Some(list),
-            _ => None,
-        }
-    }
-
-    pub fn car(&self) -> Option<&Object> {
-        match self.content {
-            TaggedValue::List(ref list, _) => Some(&list[0]),
-            _ => None,
-        }
-    }
-
-    pub fn get_ref(&self, idx: usize) -> Option<&Object> {
-        match self.content {
-            TaggedValue::List(ref list, _) => Some(&list[idx]),
-            _ => None,
-        }
-    }
-
-    pub fn list_len(&self) -> Option<usize> {
-        match self.content {
-            TaggedValue::Nil => Some(0),
-            TaggedValue::List(ref list, _) => Some(list.len()),
-            _ => None,
         }
     }
 }

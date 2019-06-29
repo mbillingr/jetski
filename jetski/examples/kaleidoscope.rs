@@ -3,6 +3,7 @@ use cranelift::prelude::*;
 use cranelift_module::{FuncId, Linkage, Module};
 use cranelift_preopt::optimize;
 use cranelift_simplejit::{SimpleJITBackend, SimpleJITBuilder};
+use jetski::SchemeExpression;
 use jetski::{jit::Tag, parser::parse_datum, ErrorKind, Object, Result};
 use rustyline::{error::ReadlineError, Editor};
 use std::collections::HashMap;
@@ -149,7 +150,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     fn compile_variable(&mut self, expr: &Object) -> Result<(Value, Value)> {
-        let (tag, val) = self.make_symbol(expr.try_as_symbol_name().unwrap());
+        let (tag, val) = self.make_symbol(expr.symbol_name().unwrap());
 
         let mut sig = self.module.make_signature();
         sig.params.push(AbiParam::new(types::I64));
@@ -175,7 +176,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let lhs = self.compile_expression(expr.get_ref(1).unwrap())?;
         let rhs = self.compile_expression(expr.get_ref(2).unwrap())?;
 
-        let result = match expr.get_ref(0).and_then(Object::try_as_symbol_name) {
+        let result = match expr.get_ref(0).and_then(Object::symbol_name) {
             Some("+") => self.builder.ins().iadd(lhs.1, rhs.1),
             Some("-") => self.builder.ins().isub(lhs.1, rhs.1),
             Some("*") => self.builder.ins().imul(lhs.1, rhs.1),
@@ -187,8 +188,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     fn compile_definition(&mut self, expr: &Object) -> Result<(Value, Value)> {
-        let (var_tag, var_val) =
-            self.make_symbol(definition_variable(expr).try_as_symbol_name().unwrap());
+        let (var_tag, var_val) = self.make_symbol(definition_variable(expr).symbol_name().unwrap());
 
         let (val_tag, val_val) = self.compile_expression(definition_value(expr))?;
 
@@ -322,14 +322,14 @@ fn is_variable(expr: &Object) -> bool {
 
 fn is_hardcoded(expr: &Object) -> bool {
     expr.car()
-        .and_then(Object::try_as_symbol_name)
+        .and_then(Object::symbol_name)
         .map(|name| ["+", "-", "*", "/"].contains(&name))
         .unwrap_or(false)
 }
 
 fn is_definition(expr: &Object) -> bool {
     expr.car()
-        .and_then(Object::try_as_symbol_name)
+        .and_then(Object::symbol_name)
         .map(|name| name == "define")
         .unwrap_or(false)
 }
@@ -344,7 +344,7 @@ fn definition_value(expr: &Object) -> &Object {
 
 fn is_lambda(expr: &Object) -> bool {
     expr.car()
-        .and_then(Object::try_as_symbol_name)
+        .and_then(Object::symbol_name)
         .map(|name| name == "lambda")
         .unwrap_or(false)
 }
@@ -365,8 +365,9 @@ fn get_operator(expr: &Object) -> &Object {
     expr.car().unwrap()
 }
 
-fn get_operands(expr: &Object) -> &[Object] {
-    &expr.try_as_slice().unwrap()[1..]
+fn get_operands(_expr: &Object) -> &[Object] {
+    //&expr.try_as_slice().unwrap()[1..]
+    unimplemented!()
 }
 
 fn main() -> Result<()> {

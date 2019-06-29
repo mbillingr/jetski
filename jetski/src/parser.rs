@@ -17,7 +17,8 @@ fn walk_datum(pair: Pair<Rule>) -> Result<Object> {
         Rule::number => walk_number(pair),
         Rule::symbol => walk_symbol(pair),
         Rule::string_content => walk_string(pair),
-        _ => unimplemented!(),
+        Rule::abbreviation => walk_abbreviation(pair),
+        _ => unimplemented!("{:?}", pair),
     }
 }
 
@@ -81,6 +82,20 @@ fn walk_string(pair: Pair<Rule>) -> Result<Object> {
     Ok(Object::string(pair.as_str().to_owned()))
 }
 
+fn walk_abbreviation(pair: Pair<Rule>) -> Result<Object> {
+    let mut inner = pair.into_inner();
+    let prefix = inner.next().unwrap();
+    let datum = inner.next().unwrap();
+
+    match prefix.as_str() {
+        "'" => Ok(Object::cons(
+            Object::symbol("quote"),
+            Object::cons(walk_datum(datum)?, Object::nil()),
+        )),
+        _ => unimplemented!("{:?}", prefix),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,5 +111,11 @@ mod tests {
             "{:?}",
             parse_datum("(define (two-sqr x) (* 2 x x))").unwrap()
         );
+        println!(
+            "{}",
+            parse_datum("(define (two-sqr x) (* 2 x x))").unwrap()
+        );
+        println!("{:?}", parse_datum("'(1 2 3)").unwrap());
+        panic!()
     }
 }
