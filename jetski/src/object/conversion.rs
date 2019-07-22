@@ -24,3 +24,15 @@ impl_from!(f64, f64, Object::float);
 impl_from!(f32, f64, Object::float);
 
 impl_from!(Symbol, Symbol, Object::symbol);
+
+impl Object {
+    pub fn list_to_vec(&self) -> Option<Vec<Object>> {
+        let mut acc = vec![];
+        let mut cursor = self;
+        while let TaggedValue::Pair(car, cdr) = cursor.as_value() {
+            acc.push((**car).clone());
+            cursor = cdr;
+        }
+        Some(acc)
+    }
+}

@@ -111,10 +111,7 @@ mod tests {
             "{:?}",
             parse_datum("(define (two-sqr x) (* 2 x x))").unwrap()
         );
-        println!(
-            "{}",
-            parse_datum("(define (two-sqr x) (* 2 x x))").unwrap()
-        );
+        println!("{}", parse_datum("(define (two-sqr x) (* 2 x x))").unwrap());
         println!("{:?}", parse_datum("'(1 2 3)").unwrap());
         panic!()
     }

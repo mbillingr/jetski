@@ -1,3 +1,5 @@
+//#![type_length_limit="100000000"]
+
 extern crate pest;
 
 #[macro_use]
@@ -5,6 +7,7 @@ extern crate pest_derive;
 #[macro_use]
 pub mod syntax;
 
+pub mod core_scheme;
 mod error;
 pub mod jit;
 mod object;

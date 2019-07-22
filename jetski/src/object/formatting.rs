@@ -1,4 +1,4 @@
-use super::{TaggedValue, Object};
+use super::{Object, TaggedValue};
 
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -14,8 +14,8 @@ impl std::fmt::Display for Object {
             Undef => write!(f, "<undefined>"),
             Integer(x) => write!(f, "{}", x),
             Float(x) => write!(f, "{}", x),
-            Symbol(s)  => write!(f, "{}", s),
-            String(s)  => write!(f, "{:?}", s),
+            Symbol(s) => write!(f, "{}", s),
+            String(s) => write!(f, "{:?}", s),
             Function(_) => write!(f, "<function>"),
             Pair(car, cdr) => {
                 let mut cdr = &**cdr;
